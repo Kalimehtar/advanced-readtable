@@ -168,8 +168,9 @@ RETURN: number of the colons"
                (read stream nil))))))
 
     (let ((token (read-token stream)))
+      (check-type token symbol)
       (multiple-value-bind (symbol status) 
-          (find-symbol token package)
+          (find-symbol (symbol-name token) package)
         (unintern token)
         (when (and (= colons 1) (not (eq status :external))) 
           (cerror "Use anyway" 
