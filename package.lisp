@@ -17,4 +17,5 @@
    #:*disable-symbol-readmacro*
    #:push-import-prefix
    #:push-local-nickname
-   #:push-local-package))
+   #:push-local-package
+   #:set-handler))

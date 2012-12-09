@@ -10,9 +10,10 @@
 ;;;                                    package::symbol1 and package::symbol2
 
 (defvar *per-package-finders* (make-hash-table :test 'eq)
-  "Hash package -> list of handlers")
+  "Hash package -> list of handlers. Each handler is a cons (key . function)")
 (defvar *package-finders* nil
-  "List of handlers (lambda (name package) ...) -> package")
+  "List of handlers. Each handler is a cons (key . function) 
+function = (lambda (name package) ...) -> package")
 
 
 
@@ -40,25 +41,31 @@
            (type string name)
            (type (or null package) package))
   (when handlers-list
-    (or (funcall (car handlers-list) name package)
+    (or (funcall (cdr (car handlers-list)) name package)
         (try-funcall (cdr handlers-list) name package))))
 
 (defun find-package (name &optional (current-package *package*))
+  "We try to find package.
+1. By full name with CL:FIND-PACKAGE.
+2. By per-package handlers. Here we wil try local-nicknames and so on.
+3. By global handlers. Here we may use, for example, hierarchical packages."
   (declare (type (or null package) current-package))
   (if (typep name 'package) name
       (let ((sname (string name)))
-        (or 
+        (or
+         (cl:find-package name)
          (when current-package
            (try-funcall (package-finders current-package) sname current-package))
-         (try-funcall *package-finders* sname current-package)
-         (cl:find-package name)))))
+         (try-funcall *package-finders* sname current-package)))))
 
 (defvar *package-symbol-finders* (make-hash-table :test 'eq)
-  "Hash package -> list of handlers")
+  "Hash package -> list of handlers. Each handler is a cons (key . function)")
 (defvar *symbol-finders* nil
-  "List of handlers (lambda (name package) ...) -> symbol")
+  "List of handlers. Each handler is a cons (key . function) 
+function =  (lambda (name package) ...) -> symbol")
 (defvar *extra-finders* (make-hash-table :test 'eq)
-  "Hash symbol -> list of handlers (lambda (name package) ...) -> symbol
+  "Hash symbol -> list of handlers. Each handler is a cons (key . function) 
+function = (lambda (name package) ...) -> symbol
 These will be used before CL:FIND-SYMBOL")
 
 (defvar *symbol-readmacros* (make-hash-table :test 'eq))
@@ -103,15 +110,21 @@ Returns function, assigned by set-macro-symbol"
            (type (or null package) package))
   (when handlers-list
     (multiple-value-bind (symbol status)
-        (funcall (car handlers-list) name package)
+        (funcall (cdr (car handlers-list)) name package)
       (if symbol 
           (values symbol status)
           (try-funcall (cdr handlers-list) name package)))))
 
 
 (defun find-symbol (name &optional dpackage)
+  "We try to find symbol
+1. In package set with car of list, for example, PUSh-LOCAL-PACKAGE
+2. By CL-FIND-SYMBOL
+3. By packages added with package:(...)
+4. By per-package finders
+5. By global finders"
   (declare (type string name))
-  (let ((package (find-package dpackage)))
+  (let ((package (if dpackage (find-package dpackage) *package*)))
     (macrolet ((mv-or (&rest clauses)
                  (if clauses
                      `(multiple-value-bind (symbol status) ,(car clauses)
@@ -121,12 +134,10 @@ Returns function, assigned by set-macro-symbol"
       
       (mv-or
        (try-mv-funcall *extra-symbol-finders* name package)
-       (unless package (try-local-packages *local-packages* name))
-       (when package (try-mv-funcall (symbol-finders package) name package))
-       (try-mv-funcall *symbol-finders* name package)
-       (if package 
-           (cl:find-symbol name package)
-           (cl:find-symbol name))))))
+       (cl:find-symbol name package)
+       (unless dpackage (try-local-packages *local-packages* name))
+       (try-mv-funcall (symbol-finders package) name package)
+       (try-mv-funcall *symbol-finders* name package)))))
 
 (defun read-token (stream)
   "
@@ -151,7 +162,7 @@ RETURN: number of the colons"
     (return-from read-after-colon 
       (if (symbolp maybe-package)
           (let ((name (symbol-name maybe-package)))
-            (or (find-symbol name)(intern name)))
+            (or (find-symbol name) (intern name)))
           maybe-package)))
 
   (let ((package (find-package maybe-package)))
@@ -231,6 +242,19 @@ RETURN: number of the colons"
 (defun extra-finders (symbol)
   (gethash symbol *extra-finders*))
 
+(defmacro set-handler (handler-list key function)
+  (let ((key-var (gensym "key")))
+    `(let ((,key-var ,key))
+       (unless (assoc ,key-var ,handler-list)
+         (push (cons ,key-var ,function)
+               ,handler-list)))))
+                      
+(defmacro %set-handler (handler-list key name &body handler-body)
+  "Local macros for push-* functions. No gensyms intended."
+  (set-handler ,handler-list ,key
+               (lambda (,name package)
+                 (declare (ignore package)) . ,handler-body)))
+
 (defun push-import-prefix (prefix &optional (package *package*))
   "Enables using package name omitting prefix.
 For example, you have packages com.clearly-useful.iterator-protocol, com.clearly-useful.reducers, ...
@@ -248,11 +272,9 @@ So, if you make
 
 after that reducers:... will refer to new package, not com.clearly-useful.reducers.
 "
-  (push (lambda (name package)
-          (declare (ignore package))
-          (or (cl:find-package name)
-              (cl:find-package (concatenate 'string prefix "." name))))
-        (package-finders package)))
+  (%set-handler (package-finders package) (list :prefix prefix) name
+    (or (cl:find-package name)
+        (cl:find-package (concatenate 'string prefix "." name)))))           
 
 (defun push-local-nickname (long-package nick 
                             &optional (current-package *package*))
@@ -273,13 +295,11 @@ rename LIB version 1 to LIB1 and make
  (push-local-nickname :lib1 :lib :a)
 "
   (let ((dpackage (find-package long-package)))
-    (push (lambda (name package)
-            (declare (ignore package))
-            (when (string= name (string nick)) dpackage))
-        (package-finders current-package))))
+    (%set-handler (package-finders current-package) (list :nick long-package nick) name
+       (when (string= name (string nick)) dpackage))))
 
 (defun push-local-package (symbol local-package)
-  "Sets local-package for a symbol. Many macroses use the own clauses. 
+  "Sets local-package for a symbol. Many macroses use there own clauses. 
 For example, ITERATE uses FOR, COLLECT and so on. 
 If you don't want to USE-PACKAGE iterate, this function will help.
  (push-local-package 'iter:iter :iterate)
@@ -292,11 +312,9 @@ For example, this will be error:
 , because first for is in ITERATE package, but second -- is not.
 "
   (let ((dpackage (find-package local-package)))
-    (push (lambda (name package)
-            (declare (ignore package))
-            (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
-              (when (eq status :external) symbol)))
-        (extra-finders symbol))))
+    (%set-handler (extra-finders symbol) (list :nick long-package nick) name
+       (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
+         (when (eq status :external) symbol)))))
 
 ;;;
 ;;; Readtable analysis and change
