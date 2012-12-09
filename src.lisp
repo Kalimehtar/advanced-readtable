@@ -251,9 +251,9 @@ RETURN: number of the colons"
                       
 (defmacro %set-handler (handler-list key name &body handler-body)
   "Local macros for push-* functions. No gensyms intended."
-  (set-handler ,handler-list ,key
-               (lambda (,name package)
-                 (declare (ignore package)) . ,handler-body)))
+  `(set-handler ,handler-list ,key
+                (lambda (,name package)
+                  (declare (ignore package)) . ,handler-body)))
 
 (defun push-import-prefix (prefix &optional (package *package*))
   "Enables using package name omitting prefix.
@@ -273,8 +273,7 @@ So, if you make
 after that reducers:... will refer to new package, not com.clearly-useful.reducers.
 "
   (%set-handler (package-finders package) (list :prefix prefix) name
-    (or (cl:find-package name)
-        (cl:find-package (concatenate 'string prefix "." name)))))           
+    (cl:find-package (concatenate 'string prefix "." name))))
 
 (defun push-local-nickname (long-package nick 
                             &optional (current-package *package*))
@@ -296,7 +295,7 @@ rename LIB version 1 to LIB1 and make
 "
   (let ((dpackage (find-package long-package)))
     (%set-handler (package-finders current-package) (list :nick long-package nick) name
-       (when (string= name (string nick)) dpackage))))
+      (when (string= name (string nick)) dpackage))))
 
 (defun push-local-package (symbol local-package)
   "Sets local-package for a symbol. Many macroses use there own clauses. 
@@ -313,8 +312,8 @@ For example, this will be error:
 "
   (let ((dpackage (find-package local-package)))
     (%set-handler (extra-finders symbol) (list :nick long-package nick) name
-       (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
-         (when (eq status :external) symbol)))))
+      (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
+        (when (eq status :external) symbol)))))
 
 ;;;
 ;;; Readtable analysis and change
