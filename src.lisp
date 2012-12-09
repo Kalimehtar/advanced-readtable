@@ -245,7 +245,7 @@ RETURN: number of the colons"
 (defmacro set-handler (handler-list key function)
   (let ((key-var (gensym "key")))
     `(let ((,key-var ,key))
-       (unless (assoc ,key-var ,handler-list)
+       (unless (assoc ,key-var ,handler-list :test #'equal)
          (push (cons ,key-var ,function)
                ,handler-list)))))
                       
@@ -272,7 +272,7 @@ So, if you make
 
 after that reducers:... will refer to new package, not com.clearly-useful.reducers.
 "
-  (%set-handler (package-finders package) (list :prefix prefix) name
+  (%set-handler (package-finders package) `(:prefix ,prefix) name
     (cl:find-package (concatenate 'string prefix "." name))))
 
 (defun push-local-nickname (long-package nick 
@@ -294,7 +294,7 @@ rename LIB version 1 to LIB1 and make
  (push-local-nickname :lib1 :lib :a)
 "
   (let ((dpackage (find-package long-package)))
-    (%set-handler (package-finders current-package) (list :nick long-package nick) name
+    (%set-handler (package-finders current-package) `(:nick ,long-package ,nick) name
       (when (string= name (string nick)) dpackage))))
 
 (defun push-local-package (symbol local-package)
@@ -311,7 +311,7 @@ For example, this will be error:
 , because first for is in ITERATE package, but second -- is not.
 "
   (let ((dpackage (find-package local-package)))
-    (%set-handler (extra-finders symbol) (list :nick long-package nick) name
+    (%set-handler (extra-finders symbol) `(:local ,symbol ,local-package) name
       (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
         (when (eq status :external) symbol)))))
 
