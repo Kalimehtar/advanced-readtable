@@ -1,13 +1,13 @@
 (in-package #:advanced-readtable)
 
-;;; Advanced-readtable
-;;; 
-;;; per-package aliases for packages
-;;; per-package shortcuts for package hierarchies
-;;; extendable find-package and find-symbol
-;;; local use pcakage in form package:(here form where package used)
-;;; local intern package like in SBCL: package::(symbol1 symbol2) will intern
-;;;                                    package::symbol1 and package::symbol2
+;;;; Advanced-readtable
+;;;; 
+;;;; per-package aliases for packages
+;;;; per-package shortcuts for package hierarchies
+;;;; extendable find-package and find-symbol
+;;;; local use package in form package:(here form where package used)
+;;;; local intern package like in SBCL: package::(symbol1 symbol2) will intern
+;;;;                                    package::symbol1 and package::symbol2
 
 (defvar *per-package-finders* (make-hash-table :test 'eq)
   "Hash package -> list of handlers. Each handler is a cons (key . function)")
@@ -119,10 +119,11 @@ Returns function, assigned by set-macro-symbol"
 (defun find-symbol (name &optional dpackage)
   "We try to find symbol
 1. In package set with car of list, for example, PUSh-LOCAL-PACKAGE
-2. By CL-FIND-SYMBOL
+2. By CL-FIND-SYMBOL, when package explicitly given
 3. By packages added with package:(...)
 4. By per-package finders
-5. By global finders"
+5. By global finders
+6. By CL-FIND-SYMBOL"
   (declare (type string name))
   (let ((package (if dpackage (find-package dpackage) *package*)))
     (macrolet ((mv-or (&rest clauses)
@@ -134,10 +135,11 @@ Returns function, assigned by set-macro-symbol"
       
       (mv-or
        (try-mv-funcall *extra-symbol-finders* name package)
-       (cl:find-symbol name package)
+       (when dpackage (cl:find-symbol name package))
        (unless dpackage (try-local-packages *local-packages* name))
        (try-mv-funcall (symbol-finders package) name package)
-       (try-mv-funcall *symbol-finders* name package)))))
+       (try-mv-funcall *symbol-finders* name package)
+       (unless dpackage (cl:find-symbol name package))))))
 
 (defun read-token (stream)
   "
@@ -158,7 +160,7 @@ RETURN: number of the colons"
 
 (defun read-after-colon (stream maybe-package colons)
   "Read symbol package:sym or list package:(...)"
-  (when (= colons 0) 
+  (when (= colons 0) ; no colon: this is a symbol or an atom
     (return-from read-after-colon 
       (if (symbolp maybe-package)
           (let ((name (symbol-name maybe-package)))
@@ -243,6 +245,17 @@ RETURN: number of the colons"
   (gethash symbol *extra-finders*))
 
 (defmacro set-handler (handler-list key function)
+  "This is middle-level public API for changing handlers for
+find-symbol and find-package. There are five lists:
+  *package-finders* -- global for find-package
+  *symbol-finders* -- global for find-symbol
+  (package-finders package) -- per-package for find-package
+  (symbol-finders package) -- per-package for find-symbol
+  (extra-finders symbol) -- per-symbol for (symbol ....) package substitution
+
+Key should be uniq in the sense of EQUAL in the list. SET-HANDLER adds
+new handler if it is not already there.
+" 
   (let ((key-var (gensym "key")))
     `(let ((,key-var ,key))
        (unless (assoc ,key-var ,handler-list :test #'equal)
@@ -288,10 +301,11 @@ You may do it right:
 
 Local-nicknames are local, so you may use it freely.
 
-Local-nickname shadows any package, which name is NICK, so if package A wants 
-package LIB version 1, and package B wants package LIB version 2, one can simply 
-rename LIB version 1 to LIB1 and make
+If package A wants  package LIB version 1, and package B wants package 
+LIB version 2, one can simply rename LIB version 1 to LIB1 and rename LIB 
+version 2 to LIB2 and make
  (push-local-nickname :lib1 :lib :a)
+ (push-local-nickname :lib2 :lib :b)
 "
   (let ((dpackage (find-package long-package)))
     (%set-handler (package-finders current-package) `(:nick ,long-package ,nick) name

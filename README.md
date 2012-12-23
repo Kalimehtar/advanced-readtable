@@ -69,3 +69,30 @@ For example, this will be error:
     
 , because first for is in ITERATE package, but second -- is not.
 
+Low-level API
+-------------
+
+There are five lists:
+-  *package-finders* -- global for find-package
+-  *symbol-finders* -- global for find-symbol
+-  (package-finders package) -- per-package for find-package
+-  (symbol-finders package) -- per-package for find-symbol
+-  (extra-finders symbol) -- per-symbol for (symbol ....) package substitution
+
+They are all alists. Key denotes handler and should be uniq for the list.
+Value should have form (lambda (name package) ...) and return symbol for
+symbol-finders and extra-finders and return pacakge for package-finders.
+
+You may freely change them to develop your own symbol or package schemes
+(for example, hierarchy-packages, conduits and so on).
+
+Middle-level API
+----------------
+
+To simplify adding new handlers with keys there is macro _set-handler_
+
+    (set-handler (package-finders pack) '(:my handler1) #'handler-func)
+
+will set handler for package pack, if there are no hanler with key 
+(:my handler1). So you may set it in your file and not be afraid, that it
+will duplicate on reloading.
