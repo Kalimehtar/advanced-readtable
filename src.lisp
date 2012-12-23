@@ -118,7 +118,7 @@ Returns function, assigned by set-macro-symbol"
 
 (defun find-symbol (name &optional dpackage)
   "We try to find symbol
-1. In package set with car of list, for example, PUSh-LOCAL-PACKAGE
+1. In package set with car of list, for example, PUSH-LOCAL-PACKAGE
 2. By CL-FIND-SYMBOL, when package explicitly given
 3. By packages added with package:(...)
 4. By per-package finders
