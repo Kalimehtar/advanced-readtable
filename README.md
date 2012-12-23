@@ -10,6 +10,7 @@ Features
                                      package::symbol1 and package::symbol2
 
 _push-import-prefix_ -- enables import prefix on package name
+--------------------------------------------
 
 For example, you have packages com.clearly-useful.iterator-protocol, com.clearly-useful.reducers, ...
 You may use them as
@@ -45,7 +46,7 @@ rename LIB version 1 to LIB1 and LIB version 2 to LIB2 and make
 (push-local-nickname :lib1 :lib :a)
 (push-local-nickname :lib2 :lib :b)
 
-_push_local_package_ -- sets local-package for a symbol
+_push-local-package_ -- sets local-package for a symbol
 ----------------------------------------------
 
 Many macroses use there own clauses. 
