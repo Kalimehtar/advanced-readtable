@@ -70,12 +70,12 @@ For example, this will be error:
 , because first for is in ITERATE package, but second -- is not.
 
 _set-macro-symbol_ - syntax is like set-macro-character, 
-except that FUNC is binded to SYMBOL, not character
 ------------------
 
+But FUNC is binded to SYMBOL, not character. 
 Now you may make something like 
 
-html:[body [table (as-html sql:[select * from t1])]]
+    html:[body [table (as-html sql:[select * from t1])]]
 
 html:[ and sql:[ will have different handlers and you may mix them in
 one expression.
