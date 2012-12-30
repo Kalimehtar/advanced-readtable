@@ -160,11 +160,16 @@ RETURN: number of the colons"
 
 (defun read-after-colon (stream maybe-package colons)
   "Read symbol package:sym or list package:(...)"
+  (declare (type symbol maybe-package)
+           (type stream stream)
+           (type fixnum colons))
   (when (= colons 0) ; no colon: this is a symbol or an atom
     (return-from read-after-colon 
       (if (symbolp maybe-package)
-          (let ((name (symbol-name maybe-package)))
-            (or (find-symbol name) (intern name)))
+          (prog1
+              (let ((name (symbol-name maybe-package)))
+                (or (find-symbol name) (intern name)))
+            (unintern maybe-package))
           maybe-package)))
 
   (let ((package (find-package maybe-package)))
@@ -286,7 +291,7 @@ So, if you make
 after that reducers:... will refer to new package, not com.clearly-useful.reducers.
 "
   (%set-handler (package-finders package) `(:prefix ,prefix) name
-    (cl:find-package (concatenate 'string prefix "." name))))
+    (cl:find-package (concatenate 'string (string prefix) "." name))))
 
 (defun push-local-nickname (long-package nick 
                             &optional (current-package *package*))
@@ -408,7 +413,7 @@ For example, this will be error:
                                      t *advanced-readtable*))))))
   
       (set-syntax-from-char #\: #\Space *colon-readtable* *colon-readtable*)
-      (set-macro-character #\( #'open-paren-reader))
+      (set-macro-character #\( #'open-paren-reader nil *advanced-readtable*))
     (setf *readtable* *advanced-readtable*)))
 
 (defun ! () (activate))
