@@ -160,8 +160,7 @@ RETURN: number of the colons"
 
 (defun read-after-colon (stream maybe-package colons)
   "Read symbol package:sym or list package:(...)"
-  (declare (type symbol maybe-package)
-           (type stream stream)
+  (declare (type stream stream)
            (type fixnum colons))
   (when (= colons 0) ; no colon: this is a symbol or an atom
     (return-from read-after-colon 
