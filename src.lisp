@@ -15,14 +15,9 @@
   "List of handlers. Each handler is a cons (key . function) 
 function = (lambda (name package) ...) -> package")
 
-
-
-
 ;;;
 ;;; Prepare readtables
 ;;;
-
-
 
 (defvar *advanced-readtable* (copy-readtable nil))
 (defvar *colon-readtable* (copy-readtable nil) 
@@ -33,8 +28,6 @@ function = (lambda (name package) ...) -> package")
 ;;; 
 
 (defpackage #:advanced-readtable.junk)
-
-
 
 (defun try-funcall (handlers-list name package)
   (declare (type list handlers-list)
@@ -55,7 +48,8 @@ function = (lambda (name package) ...) -> package")
         (or
          (cl:find-package name)
          (when current-package
-           (try-funcall (package-finders current-package) sname current-package))
+           (try-funcall (package-finders current-package) 
+                        sname current-package))
          (try-funcall *package-finders* sname current-package)))))
 
 (defvar *package-symbol-finders* (make-hash-table :test 'eq)
@@ -161,7 +155,8 @@ RETURN: number of the colons"
 (defun read-after-colon (stream maybe-package colons)
   "Read symbol package:sym or list package:(...)"
   (declare (type stream stream)
-           (type fixnum colons))
+           (type (integer 0 2) colons))
+  (check-type colons (integer 0 2))
   (when (= colons 0) ; no colon: this is a symbol or an atom
     (return-from read-after-colon 
       (if (symbolp maybe-package)
@@ -188,6 +183,11 @@ RETURN: number of the colons"
       (check-type token symbol)
       (multiple-value-bind (symbol status) 
           (find-symbol (symbol-name token) package)
+        (unless status
+          (if (= colons 1) (error "No external symbol ~S in ~S" 
+                                  (symbol-name token) package)
+              (cerror "Intern ~S in ~S" "No such symbol ~S in package ~S" 
+                      (symbol-name token) package)))
         (unintern token)
         (when (and (= colons 1) (not (eq status :external))) 
           (cerror "Use anyway" 
