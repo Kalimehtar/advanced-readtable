@@ -126,6 +126,8 @@ Returns function, assigned by set-macro-symbol"
 5. By global finders
 6. By CL-FIND-SYMBOL"
   (declare (type string name))
+  (when (string= name "NIL")
+    (return-from find-symbol (cl:find-symbol name (or dpackage *package*))))
   (let ((package (if dpackage (find-package dpackage) *package*)))
     (macrolet ((mv-or (&rest clauses)
                  (if clauses
@@ -191,8 +193,10 @@ RETURN: number of the colons"
         (unless status
           (if (= colons 1) (error "No external symbol ~S in ~S" 
                                   (symbol-name token) package)
-              (cerror "Intern ~S in ~S" "No such symbol ~S in package ~S" 
-                      (symbol-name token) package)))
+              (progn
+                (cerror "Intern ~S in ~S" "No such symbol ~S in package ~S" 
+                        (symbol-name token) package)
+                (setf symbol (intern (symbol-name token) package)))))
         (unintern token)
         (when (and (= colons 1) (not (eq status :external))) 
           (cerror "Use anyway" 
@@ -366,8 +370,6 @@ For example, this will be error:
   (setf *global-nicknames* (make-hash-table :test 'equal))
   (%set-handler *package-finders* :global-nicknames name
     (gethash name *global-nicknames*)))
-                 
-
 
 ;;;
 ;;; Readtable analysis and change
