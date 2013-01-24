@@ -18,4 +18,6 @@
    #:push-import-prefix
    #:push-local-nickname
    #:push-local-package
-   #:set-handler))
+   #:set-handler
+   #:enable-global-nicknames
+   #:enable-hierarchy-packages))

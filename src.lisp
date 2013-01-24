@@ -10,10 +10,15 @@
 ;;;;                                    package::symbol1 and package::symbol2
 
 (defvar *per-package-finders* (make-hash-table :test 'eq)
-  "Hash package -> list of handlers. Each handler is a cons (key . function)")
+  "Hash package -> list of handlers. Each handler is a cons (key . function)
+function = (lambda (name package) ...) -> package")
+
 (defvar *package-finders* nil
   "List of handlers. Each handler is a cons (key . function) 
 function = (lambda (name package) ...) -> package")
+
+(defvar *global-nicknames* nil
+  "Placeholder for global nicknames, when not null, it is an alias hash")
 
 ;;;
 ;;; Prepare readtables
@@ -42,27 +47,30 @@ function = (lambda (name package) ...) -> package")
 1. By full name with CL:FIND-PACKAGE.
 2. By per-package handlers. Here we wil try local-nicknames and so on.
 3. By global handlers. Here we may use, for example, hierarchical packages."
-  (declare (type (or null package) current-package))
+  (declare (type package current-package))
   (if (typep name 'package) name
       (let ((sname (string name)))
         (or
          (cl:find-package name)
-         (when current-package
-           (try-funcall (package-finders current-package) 
-                        sname current-package))
+         (try-funcall (package-finders current-package) 
+                      sname current-package)
          (try-funcall *package-finders* sname current-package)))))
 
 (defvar *package-symbol-finders* (make-hash-table :test 'eq)
-  "Hash package -> list of handlers. Each handler is a cons (key . function)")
+  "Hash package -> list of handlers. Each handler is a cons (key . function)
+function =  (lambda (name package) ...) -> symbol")
+
 (defvar *symbol-finders* nil
   "List of handlers. Each handler is a cons (key . function) 
 function =  (lambda (name package) ...) -> symbol")
+
 (defvar *extra-finders* (make-hash-table :test 'eq)
   "Hash symbol -> list of handlers. Each handler is a cons (key . function) 
 function = (lambda (name package) ...) -> symbol
 These will be used before CL:FIND-SYMBOL")
 
 (defvar *symbol-readmacros* (make-hash-table :test 'eq))
+
 (defvar *disable-symbol-readmacro* nil 
   "Disables processing of symbol-readmacro.")
 
@@ -109,7 +117,6 @@ Returns function, assigned by set-macro-symbol"
           (values symbol status)
           (try-funcall (cdr handlers-list) name package)))))
 
-
 (defun find-symbol (name &optional dpackage)
   "We try to find symbol
 1. In package set with car of list, for example, PUSH-LOCAL-PACKAGE
@@ -125,8 +132,7 @@ Returns function, assigned by set-macro-symbol"
                      `(multiple-value-bind (symbol status) ,(car clauses)
                         (if symbol (values symbol status)
                             (mv-or . ,(cdr clauses))))
-                     `(values nil nil))))
-      
+                     `(values nil nil))))      
       (mv-or
        (try-mv-funcall *extra-symbol-finders* name package)
        (when dpackage (cl:find-symbol name package))
@@ -147,15 +153,14 @@ RETURN: symbols name or numbers value"
   "
 DO: Reads colons from STREAM
 RETURN: number of the colons"
-  (let ((c (read-char stream nil)))
-    (if (eql c #\:) 
-        (+ 1 (count-colons stream))
-        (progn (unread-char c stream) 0))))
+  (do ((n 0 (1+ n)) 
+       (c (read-char stream nil) (read-char stream nil))) 
+      ((char/= c #\:) (unread-char c stream) n)))
 
 (defun read-after-colon (stream maybe-package colons)
   "Read symbol package:sym or list package:(...)"
   (declare (type stream stream)
-           (type (integer 0 2) colons))
+           (type integer colons))
   (check-type colons (integer 0 2))
   (when (= colons 0) ; no colon: this is a symbol or an atom
     (return-from read-after-colon 
@@ -194,8 +199,6 @@ RETURN: number of the colons"
                   "Symbol ~A not external" symbol))
         symbol))))
 
-    
-
 (defun read-token-with-colons (stream char)
   "Reads token, then analize package part if needed"
   (unread-char char stream)
@@ -227,8 +230,6 @@ RETURN: number of the colons"
   (defun open-paren-reader (stream char)
     (let ((*car-list* t) (*extra-symbol-finders* *extra-symbol-finders*))
       (funcall default-open-paren-reader stream char))))
-      
-      
 
 (defun (setf package-finders) (value &optional (package *package*))
   (setf (gethash (find-package package) *per-package-finders*) value))
@@ -310,10 +311,23 @@ LIB version 2, one can simply rename LIB version 1 to LIB1 and rename LIB
 version 2 to LIB2 and make
  (push-local-nickname :lib1 :lib :a)
  (push-local-nickname :lib2 :lib :b)
+
+If enabled global-nicknames via enable-global-nicknames,
+then also created alias in current package.
+
+For example,
+ (push-local-nickname :lib1 :lib :a), states, that package A.LIB is eq to LIB1.
 "
-  (let ((dpackage (find-package long-package)))
-    (%set-handler (package-finders current-package) `(:nick ,long-package ,nick) name
-      (when (string= name (string nick)) dpackage))))
+  (let ((dpackage (find-package long-package))
+        (s-nick (string nick)))
+    (%set-handler (package-finders current-package) 
+                  `(:nick ,(string long-package) ,s-nick) name
+      (when (string= name s-nick) dpackage))
+    (when *global-nicknames*
+      (setf (gethash (concatenate 'string
+                                  (package-name current-package)
+                                  "." s-nick) *global-nicknames*)
+            dpackage))))
 
 (defun push-local-package (symbol local-package)
   "Sets local-package for a symbol. Many macroses use there own clauses. 
@@ -332,6 +346,28 @@ For example, this will be error:
     (%set-handler (extra-finders symbol) `(:local ,symbol ,local-package) name
       (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
         (when (eq status :external) symbol)))))
+
+(flet ((parent (name)
+         (let ((pos (position #\. name :from-end t)))
+           (if pos (subseq name 0 pos) "")))
+       (relative-to (parent name)
+         (if (string= parent "") name
+             (concatenate 'string parent "." name))))
+  (defun enable-hierarchy-packages ()
+    (set-handler *package-finders* :hierarchy
+                 (lambda (name package)
+                   (when (char= (char name 0) #\.)
+                     (do ((i 1 (1+ i))
+                          (p (package-name package) (parent p)))
+                         ((char/= (char name i) #\.) 
+                          (relative-to p (subseq name i)))))))))
+
+(defun enable-global-nicknames ()
+  (setf *global-nicknames* (make-hash-table :test 'equal))
+  (%set-handler *package-finders* :global-nicknames name
+    (gethash name *global-nicknames*)))
+                 
+
 
 ;;;
 ;;; Readtable analysis and change
@@ -367,8 +403,6 @@ For example, this will be error:
   (ignore-errors 
     (string= (symbol-name '#:\ ) (symbol-name
                                   (read-from-string (format nil "#:~A'" c))))))
-
-
 
 (defun macro-char-p (c)
   "If C is macro-char, return GET-MACRO-CHARACTER"
