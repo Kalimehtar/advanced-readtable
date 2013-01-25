@@ -439,12 +439,13 @@ For example, this will be error:
 
 (macrolet ((def-advanced-readtable ()
              (when (cl:find-package "NAMED-READTABLES")
-               `(named-readtables:defreadtable :advanced
+               `(,(cl:find-symbol "DEFREADTABLE" "NAMED-READTABLES") :advanced
                   (:merge :standard)
                   ,@(dolist (c (chars-to-process))
                             `(:macro-char ,c #'read-token-with-colons t))
                   (:macro-char #\( #'open-paren-reader nil)))))
-  (def-advanced-readtable))
+  (when (cl:find-package "NAMED-READTABLES")
+    (def-advanced-readtable)))
 
 (defun activate ()
   (dolist (c (chars-to-process))
