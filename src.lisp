@@ -24,9 +24,9 @@ function = (lambda (name package) ...) -> package")
 ;;; Prepare readtables
 ;;;
 
-(defvar *advanced-readtable* (copy-readtable nil))
 (defvar *colon-readtable* (copy-readtable nil) 
   "Support readtable with colon as whitespace")
+(set-syntax-from-char #\: #\Space *colon-readtable* *colon-readtable*)
 
 ;;;
 ;;; Readtable handlers
@@ -126,13 +126,13 @@ Returns function, assigned by set-macro-symbol"
 5. By global finders
 6. By CL-FIND-SYMBOL"
   (declare (type string name))
-  (when (string= name "NIL")
-    (return-from find-symbol (cl:find-symbol name (or dpackage *package*))))
+;  (when (string= name "NIL")
+;    (return-from find-symbol (cl:find-symbol name (or dpackage *package*))))
   (let ((package (if dpackage (find-package dpackage) *package*)))
     (macrolet ((mv-or (&rest clauses)
                  (if clauses
                      `(multiple-value-bind (symbol status) ,(car clauses)
-                        (if symbol (values symbol status)
+                        (if status (values symbol status)
                             (mv-or . ,(cdr clauses))))
                      `(values nil nil))))      
       (mv-or
@@ -371,84 +371,84 @@ For example, this will be error:
   (%set-handler *package-finders* :global-nicknames name
     (gethash name *global-nicknames*)))
 
+(enable-hierarchy-packages)
+(enable-global-nicknames)
+
 ;;;
 ;;; Readtable analysis and change
 ;;;
+(eval-when (:compile-toplevel)
+  (defmacro with-case (case &body body)
+    (let ((save (gensym)))
+      `(let ((,save (readtable-case *readtable*)))
+         (setf (readtable-case *readtable*) ,case)
+         (unwind-protect
+              (progn ,@body)
+           (setf (readtable-case *readtable*) ,save)))))
 
-(defmacro with-case (case &body body)
-  (let ((save (gensym)))
-    `(let ((,save (readtable-case *readtable*)))
-       (setf (readtable-case *readtable*) ,case)
-       (unwind-protect
-            (progn ,@body)
-         (setf (readtable-case *readtable*) ,save)))))
+  (defun does-not-terminate-token-p (c) 
+    (ignore-errors
+      (let ((str (format nil "a~Ab" c)))
+        (string= str (symbol-name 
+                      (with-case :preserve 
+                        (read-from-string (format nil "#:~A" str))))))))
 
-(defun does-not-terminate-token-p (c) 
-  (ignore-errors
-    (let ((str (format nil "a~Ab" c)))
-      (string= str (symbol-name 
-                    (with-case :preserve 
-                      (read-from-string (format nil "#:~A" str))))))))
+  (defun whitespace-p (c)
+    (ignore-errors 
+      (= 2 (length (read-from-string (format nil "(#:a~A#:b)" c))))))
 
+  (defun multiple-escape-p (c)
+    (ignore-errors 
+      (string= "qQ" (symbol-name
+                     (with-case :upcase
+                       (read-from-string (format nil "#:~AqQ~A" c c)))))))
 
-(defun whitespace-p (c)
-  (ignore-errors 
-    (= 2 (length (read-from-string (format nil "(#:a~A#:b)" c))))))
+  (defun single-escape-p (c)
+    (ignore-errors 
+      (string= (symbol-name '#:\ ) (symbol-name
+                                    (read-from-string 
+                                     (format nil "#:~A'" c))))))
 
-(defun multiple-escape-p (c)
-  (ignore-errors 
-    (string= "qQ" (symbol-name
-                   (with-case :upcase
-                     (read-from-string (format nil "#:~AqQ~A" c c)))))))
+  (defun macro-char-p (c)
+    "If C is macro-char, return GET-MACRO-CHARACTER"
+    #+allegro (unless 
+                  (eql (get-macro-character c) #'excl::read-token)
+                (get-macro-character c))
+    #-allegro (get-macro-character c))
 
-(defun single-escape-p (c)
-  (ignore-errors 
-    (string= (symbol-name '#:\ ) (symbol-name
-                                  (read-from-string (format nil "#:~A'" c))))))
-
-(defun macro-char-p (c)
-  "If C is macro-char, return GET-MACRO-CHARACTER"
-  #+allegro (unless 
-                (eql (get-macro-character c) #'excl::read-token)
-              (get-macro-character c))
-  #-allegro (get-macro-character c))
-
-(defun fill-char-table ()
-  "Returns simple-vector with character syntax classes"
-  (let ((*readtable* (copy-readtable nil))
-        (char-table (make-array 127)))
-    (dotimes (i (length char-table))
-      (let ((c (code-char i)))
-        (setf 
-         (svref char-table i)
-         (cond
-           ((eql c #\:) :colon)
-           ((macro-char-p c) :macro)
-           ((does-not-terminate-token-p c) :does-not-terminate-token)
-           ((whitespace-p c) :whitespace)
-           ((multiple-escape-p c) :multiple-escape)
-           ((single-escape-p c) :single-escape)))))
-    char-table))
-
-(let (initialized)
-  (defun activate (&optional force)
-    "Inits *advanced-readtable* and *colon-readtable*."
-    (when (or force (not initialized))
-      (setq initialized t)
-      (let ((char-table (fill-char-table)))
-        (dotimes (i (length char-table))
-          (let ((b (svref char-table i))
-                (c (code-char i)))
-            (unless (char= #\# c)
-              (when (member b '(:does-not-terminate-token 
-                                :multiple-escape :single-escape))
-                ;; will make it non-terminating macro character
-                ;;    = potentially beginning of the package-name
-                (set-macro-character c #'read-token-with-colons 
-                                     t *advanced-readtable*))))))
+  (defun to-process (c)
+    (cond
+      ((eql c #\:) nil)
+      ((macro-char-p c) nil)
+      ((does-not-terminate-token-p c) t)
+      ((whitespace-p c) nil)
+      ((multiple-escape-p c) t)
+      ((single-escape-p c) t)
+      (t nil)))
   
-      (set-syntax-from-char #\: #\Space *colon-readtable* *colon-readtable*)
-      (set-macro-character #\( #'open-paren-reader nil *advanced-readtable*))
-    (setf *readtable* *advanced-readtable*)))
+  (defparameter +additional-chars+ ""
+    "Fill this, if you need extra characters for packages to begin with")
+
+  (defun chars-to-process ()
+    (nconc
+     (loop :for i :from 1 to :127
+        :for c = (code-char i)
+        :when (to-process c) :collect c)
+     (loop :for c :across +additional-chars+
+        :collect c))))
+
+(macrolet ((def-advanced-readtable ()
+             (when (cl:find-package "NAMED-READTABLES")
+               `(named-readtables:defreadtable :advanced
+                  (:merge :standard)
+                  ,@(dolist (c (chars-toprocess))
+                            `(:macro-char ,c #'read-token-with-colons t))
+                  (:macro-char #\( #'open-paren-reader nil)))))
+  (def-advanced-readtable))
+
+(defun activate ()
+  (dolist (c (chars-toprocess))
+    (set-macro-character c #'read-token-with-colons t))
+  (set-macro-character c #'read-token-with-colons t))
 
 (defun ! () (activate))
