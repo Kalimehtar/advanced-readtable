@@ -20,6 +20,30 @@ or simply add to advanced-readtable to current readtable
 
     (advanced-readtable:!)
 
+Hierarchy packages
+------------------
+
+Advanced-readtable has fully functional built-in support of hierarchy-packages.
+
+    CL-USER> (defpackage .test (:use cl)))
+    #<PACKAGE "COMMON-LISP-USER.TEST">
+    CL-USER> (in-package .test)
+    TEST> (in-package ..)
+    CL-USER> (defpackage .test.a (:use cl))
+    #<PACKAGE "COMMON-LISP-USER.TEST.A">
+    CL-USER> (in-package .test.a)
+    A> '...::car
+    CAR
+    A> (eq '...::car 'cl:car)
+    T
+    A> (in-package ...test)
+    TEST> (in-package ..)
+    CL-USER>
+
+
+API
+===
+
 _push-import-prefix_ -- enables import prefix on package name
 --------------------------------------------
 

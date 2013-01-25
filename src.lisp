@@ -149,7 +149,7 @@ Returns function, assigned by set-macro-symbol"
       ((or (null c) (char/= c #\.))
        (when c 
          (unread-char c stream))
-       (if (and (plusp n) (member c '(#\Space #\: #\Tab #\Newline nil)))
+       (if (and (plusp n) (member c '(nil #\Space #\) #\( #\Tab #\Newline #\:)))
          (intern (make-string n :initial-element #\.))
          (dotimes (foo n) (unread-char #\. stream))))))
 
@@ -368,14 +368,17 @@ For example, this will be error:
 ;;; cl-user.test.a == common-lisp-user.test.a
 
 (defun normalize-package (name)
-  "Returns nil if already normalized"
+  "Returns nil if already normalized.
+Replace first section of hierarchy with proper name"
   (let ((pos (position #\. name)))
     (when pos
-      (let* ((base (subseq name 0 pos))
-             (p (find-package base)))
-        (when (and p (string/= (package-name p) base))
-          (concatenate 'string (package-name p) "." 
-                       (subseq name (1+ pos))))))))
+      (if (= pos 0)  ; .subpackage
+          (concatenate 'string (package-name *package*) name)
+          (let* ((base (subseq name 0 pos))
+                 (p (find-package base)))
+            (when (and p (string/= (package-name p) base))
+              (concatenate 'string (package-name p) "." 
+                           (subseq name (1+ pos)))))))))
 
 (flet ((parent (name)
          (let ((pos (position #\. name :from-end t)))
@@ -488,12 +491,13 @@ For example, this will be error:
     "Fill this, if you need extra characters for packages to begin with")
 
   (defun chars-to-process ()
-    (nconc
-     (loop :for i :from 1 :to 127
-        :for c = (code-char i)
-        :when (to-process c) :collect c)
-     (loop :for c :across +additional-chars+
-        :when (to-process c) :collect c)))
+    (let ((*readtable* (copy-readtable nil)))
+      (nconc
+       (loop :for i :from 1 :to 127
+          :for c = (code-char i)
+          :when (to-process c) :collect c)
+       (loop :for c :across +additional-chars+
+          :when (to-process c) :collect c))))
 
   (defun make-named-rt ()
     `(,(cl:find-symbol "DEFREADTABLE" "NAMED-READTABLES") :advanced
