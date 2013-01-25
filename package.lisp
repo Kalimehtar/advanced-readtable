@@ -1,8 +1,10 @@
-(defpackage #:advanced-readtable
+(cl:|DEFPACKAGE| #:advanced-readtable
   (:use #:cl)
   (:shadow
    #:find-package
-   #:find-symbol)
+   #:find-symbol
+   #:in-package
+   #:defpackage)
   (:export
    #:set-macro-symbol
    #:get-macro-symbol

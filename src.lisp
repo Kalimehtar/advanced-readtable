@@ -32,7 +32,7 @@ function = (lambda (name package) ...) -> package")
 ;;; Readtable handlers
 ;;; 
 
-(defpackage #:advanced-readtable.junk)
+(|CL|:defpackage #:advanced-readtable.junk)
 
 (defun try-funcall (handlers-list name package)
   (declare (type list handlers-list)
@@ -143,13 +143,24 @@ Returns function, assigned by set-macro-symbol"
        (try-mv-funcall *symbol-finders* name package)
        (unless dpackage (cl:find-symbol name package))))))
 
+(defun collect-dots (stream)
+  (do ((n 0 (1+ n)) 
+       (c (read-char stream nil) (read-char stream nil)))
+      ((or (null c) (char/= c #\.))
+       (when c 
+         (unread-char c stream))
+       (if (and (plusp n) (member c '(#\Space #\: #\Tab #\Newline nil)))
+         (intern (make-string n :initial-element #\.))
+         (dotimes (foo n) (unread-char #\. stream))))))
+
 (defun read-token (stream)
   "
 DO: Reads from STREAM a symbol or number up to whitespace or colon
 RETURN: symbols name or numbers value"
   (let ((*readtable* *colon-readtable*)
         (*package* (cl:find-package '#:advanced-readtable.junk)))
-    (read-preserving-whitespace stream nil)))
+    (or (collect-dots stream)
+        (read-preserving-whitespace stream nil))))
 
 (defun count-colons (stream)
   "
@@ -157,7 +168,8 @@ DO: Reads colons from STREAM
 RETURN: number of the colons"
   (do ((n 0 (1+ n)) 
        (c (read-char stream nil) (read-char stream nil))) 
-      ((char/= c #\:) (unread-char c stream) n)))
+      ((or (null c) (char/= c #\:)) 
+       (when c (unread-char c stream)) n)))
 
 (defun read-after-colon (stream maybe-package colons)
   "Read symbol package:sym or list package:(...)"
@@ -351,20 +363,66 @@ For example, this will be error:
       (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
         (when (eq status :external) symbol)))))
 
+;;; TODO: process nicknames in hierarchy
+;;; ex: cl-user.test == common-lisp-user.test
+;;; cl-user.test.a == common-lisp-user.test.a
+
+(defun normalize-package (name)
+  "Returns nil if already normalized"
+  (let ((pos (position #\. name)))
+    (when pos
+      (let* ((base (subseq name 0 pos))
+             (p (find-package base)))
+        (when (and p (string/= (package-name p) base))
+          (concatenate 'string (package-name p) "." 
+                       (subseq name (1+ pos))))))))
+
 (flet ((parent (name)
          (let ((pos (position #\. name :from-end t)))
            (if pos (subseq name 0 pos) "")))
        (relative-to (parent name)
-         (if (string= parent "") name
-             (concatenate 'string parent "." name))))
-  (defun enable-hierarchy-packages ()
-    (set-handler *package-finders* :hierarchy
-                 (lambda (name package)
-                   (when (char= (char name 0) #\.)
-                     (do ((i 1 (1+ i))
-                          (p (package-name package) (parent p)))
-                         ((char/= (char name i) #\.) 
-                          (relative-to p (subseq name i)))))))))
+         (cond 
+           ((string= parent "") name)
+           ((string= name "") parent)
+           (t (concatenate 'string parent "." name)))))
+  (defun hierarchy-find-package (name package)
+    (if (char= (char name 0) #\.)
+      (do ((i 1 (1+ i))
+           (p (package-name package) (parent p)))
+          ((or (= i (length name)) (char/= (char name i) #\.))
+           (find-package (relative-to p (subseq name i)))))
+      (let ((normalized (normalize-package name)))
+        (when normalized
+          (find-package normalized package))))))
+
+(defun correct-package (designator)
+  (let ((p (find-package designator)))
+    (if p (package-name p) designator)))
+
+(defmacro in-package (designator)
+  `(|CL|:in-package ,(correct-package (string designator))))
+
+(defmacro defpackage (package &rest options)
+  (let ((normalized (normalize-package (string package)))
+        (options 
+         (mapcar (lambda (option)
+                   (cons (car option)
+                         (case (car option)
+                           (:use (mapcar #'correct-package (cdr option)))
+                           ((:import-from :shadowing-import-from)
+                            (cons (correct-package (second option))
+                                  (cddr option)))
+                           (t (cdr option)))))
+                 options)))
+    `(|CL|:defpackage ,(or normalized package) . ,options)))
+
+(defun substitute-symbol (stream symbol)
+  (find-symbol (symbol-name symbol) #.*package*))
+
+(defun enable-hierarchy-packages ()
+  (set-handler *package-finders* :hierarchy #'hierarchy-find-package)
+  (set-macro-symbol '|CL|:in-package #'substitute-symbol)
+  (set-macro-symbol '|CL|:defpackage #'substitute-symbol))
 
 (defun enable-global-nicknames ()
   (setf *global-nicknames* (make-hash-table :test 'equal))
@@ -435,15 +493,17 @@ For example, this will be error:
         :for c = (code-char i)
         :when (to-process c) :collect c)
      (loop :for c :across +additional-chars+
-        :collect c))))
+        :when (to-process c) :collect c)))
+
+  (defun make-named-rt ()
+    `(,(cl:find-symbol "DEFREADTABLE" "NAMED-READTABLES") :advanced
+       (:merge :standard)
+       ,@(loop :for c :in (chars-to-process)
+            :collect `(:macro-char ,c #'read-token-with-colons t))
+       (:macro-char #\( #'open-paren-reader nil))))
 
 (macrolet ((def-advanced-readtable ()
-             (when (cl:find-package "NAMED-READTABLES")
-               `(,(cl:find-symbol "DEFREADTABLE" "NAMED-READTABLES") :advanced
-                  (:merge :standard)
-                  ,@(dolist (c (chars-to-process))
-                            `(:macro-char ,c #'read-token-with-colons t))
-                  (:macro-char #\( #'open-paren-reader nil)))))
+             (make-named-rt)))
   (when (cl:find-package "NAMED-READTABLES")
     (def-advanced-readtable)))
 
