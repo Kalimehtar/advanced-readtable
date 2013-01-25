@@ -377,7 +377,7 @@ For example, this will be error:
 ;;;
 ;;; Readtable analysis and change
 ;;;
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro with-case (case &body body)
     (let ((save (gensym)))
       `(let ((,save (readtable-case *readtable*)))
