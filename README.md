@@ -9,6 +9,15 @@ Features
 - local intern package like in SBCL: package::(symbol1 symbol2) will intern
                                      package::symbol1 and package::symbol2
 
+To start
+--------
+
+Either use named-readtables and write
+    (in-readtable :advanced)
+    
+or simply add to advanced-readtable to current readtable
+    (advanced-readtable:!)
+
 _push-import-prefix_ -- enables import prefix on package name
 --------------------------------------------
 
