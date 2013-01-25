@@ -431,7 +431,7 @@ For example, this will be error:
 
   (defun chars-to-process ()
     (nconc
-     (loop :for i :from 1 to :127
+     (loop :for i :from 1 :to 127
         :for c = (code-char i)
         :when (to-process c) :collect c)
      (loop :for c :across +additional-chars+
@@ -441,13 +441,13 @@ For example, this will be error:
              (when (cl:find-package "NAMED-READTABLES")
                `(named-readtables:defreadtable :advanced
                   (:merge :standard)
-                  ,@(dolist (c (chars-toprocess))
+                  ,@(dolist (c (chars-to-process))
                             `(:macro-char ,c #'read-token-with-colons t))
                   (:macro-char #\( #'open-paren-reader nil)))))
   (def-advanced-readtable))
 
 (defun activate ()
-  (dolist (c (chars-toprocess))
+  (dolist (c (chars-to-process))
     (set-macro-character c #'read-token-with-colons t))
   (set-macro-character c #'read-token-with-colons t))
 
