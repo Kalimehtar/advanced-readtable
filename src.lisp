@@ -449,6 +449,6 @@ For example, this will be error:
 (defun activate ()
   (dolist (c (chars-to-process))
     (set-macro-character c #'read-token-with-colons t))
-  (set-macro-character c #'read-token-with-colons t))
+  (set-macro-character #\( #'open-paren-reader t))
 
 (defun ! () (activate))
