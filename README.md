@@ -86,6 +86,10 @@ rename LIB version 1 to LIB1 and LIB version 2 to LIB2 and make
     (push-local-nickname :lib1 :lib :a)
     (push-local-nickname :lib2 :lib :b)
 
+This command also adds local subpackage alias. In the previous example a.lib 
+and b.lib will be aliases to lib1 and lib2. If there is a real package with 
+such name, alias will be shadowed, so don't worry too much about it.
+
 _push-local-package_ -- sets local-package for a symbol
 ----------------------------------------------
 
@@ -104,16 +108,33 @@ For example, this will be error:
     
 , because first for is in ITERATE package, but second -- is not.
 
+Be careful: this change is not local to your package.
+
 _set-macro-symbol_ - syntax is like set-macro-character, 
 ------------------
 
-But FUNC is binded to SYMBOL, not character. 
+But FUNC is binded to SYMBOL, not character. This symbol will be processed 
+in all cases, where it is not bounded by ||.
+
 Now you may make something like 
 
     html:[body [table (as-html sql:[select * from t1])]]
 
 html:[ and sql:[ will have different handlers and you may mix them in
 one expression.
+
+Also it allows to make simple symbol-aliases. For example:
+
+    (set-macro-symbol '|ALIAS| (lambda (stream symbol)
+                                 (declare (ignore stream symbol))
+                                   'advanced-readtables:push-local-package))
+Now you may do
+
+    (alias 'iter:iter :iterate)
+
+Moreover, you may alias variables from other packages and set them through 
+alias. But be careful: this change is not local to your package.
+                                   
 
 _get-macro-symbol_ - syntax is like get-macro-character, 
 ------------------

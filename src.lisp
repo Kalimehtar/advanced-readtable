@@ -420,6 +420,7 @@ Replace first section of hierarchy with proper name"
     `(|CL|:defpackage ,(or normalized package) . ,options)))
 
 (defun substitute-symbol (stream symbol)
+  (declare (ignore stream))
   (find-symbol (symbol-name symbol) #.*package*))
 
 (defun enable-hierarchy-packages ()
