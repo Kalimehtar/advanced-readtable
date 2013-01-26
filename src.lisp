@@ -494,27 +494,24 @@ Replace first section of hierarchy with proper name"
   (defun chars-to-process ()
     (let ((*readtable* (copy-readtable nil)))
       (nconc
-       (loop :for i :from 1 :to 127
+       (loop :for i :from 0 :to 127
           :for c = (code-char i)
           :when (to-process c) :collect c)
        (loop :for c :across +additional-chars+
           :when (to-process c) :collect c))))
 
   (defun make-named-rt ()
-    `(,(cl:find-symbol "DEFREADTABLE" "NAMED-READTABLES") :advanced
+    `(defreadtable :advanced
        (:merge :standard)
-       ,@(loop :for c :in (chars-to-process)
-            :collect `(:macro-char ,c #'read-token-with-colons t))
+       ,@(mapcar (lambda (c) (list :macro-char c #'read-token-with-colons t))
+                 (chars-to-process))
        (:macro-char #\( #'open-paren-reader nil))))
 
 (macrolet ((def-advanced-readtable ()
              (make-named-rt)))
-  (when (cl:find-package "NAMED-READTABLES")
-    (def-advanced-readtable)))
+  (def-advanced-readtable))
 
 (defun activate ()
-  (dolist (c (chars-to-process))
-    (set-macro-character c #'read-token-with-colons t))
-  (set-macro-character #\( #'open-paren-reader t))
+  (in-readtable :advanced))
 
 (defun ! () (activate))

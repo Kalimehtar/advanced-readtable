@@ -1,5 +1,6 @@
-(cl:|DEFPACKAGE| #:advanced-readtable
-  (:use #:cl)
+(defpackage #:advanced-readtable
+  (:use #:cl #:named-readtables)
+  (:import-from #:named-readtables #:define-api #:=>)
   (:shadow
    #:find-package
    #:find-symbol
