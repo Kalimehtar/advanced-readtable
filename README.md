@@ -148,8 +148,8 @@ Low-level API
 -------------
 
 There are five lists:
--  *package-finders* -- global for find-package
--  *symbol-finders* -- global for find-symbol
+-  `*package-finders*` -- global for find-package
+-  `*symbol-finders*` -- global for find-symbol
 -  (package-finders package) -- per-package for find-package
 -  (symbol-finders package) -- per-package for find-symbol
 -  (extra-finders symbol) -- per-symbol for (symbol ....) package substitution
@@ -171,3 +171,19 @@ To simplify adding new handlers with keys there is macro _set-handler_
 will set handler for package pack, if there are no hanler with key 
 (:my handler1). So you may set it in your file and not be afraid, that it
 will duplicate on reloading.
+
+Restrictions
+------------
+
+You must only ASCII characters for first letter of every part of package name 
+and for first letter of symbols, that you want to use in set-macro-symbol
+
+If you really need other characters you may set them by calling
+
+    (set-macro-character c #'advanced-readtable:read-token-with-colons t)
+    
+for every your character.
+
+If you need to temporary disable macro-characted substitution, you may set 
+`advanced-readtable:*enable-symbol-readmacro*` to nil. It could be useful, if you
+describe a lot of symbols and don't want to enclose every of them in || (and upcase, of course).
