@@ -24,6 +24,9 @@ Hierarchy packages
 ------------------
 
 Advanced-readtable has fully functional built-in support of hierarchy-packages.
+.name means "subpackage name in current package", ..name -- "subpackage name in above package",
+...name -- "subpackage in two-level-up package" and so on.
+In in-package you may use .. for above package, ... for two level up, and so on.
 
     CL-USER> (defpackage .test (:use cl)))
     #<PACKAGE "COMMON-LISP-USER.TEST">
