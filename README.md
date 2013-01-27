@@ -113,11 +113,22 @@ For example, this will be error:
 
 Be careful: this change is not local to your package.
 
-_set-macro-symbol_ - syntax is like set-macro-character, 
-------------------
+_set-macro-symbol_ symbol func -- sets FUNC to process the SYMBOL.
+--------------------------
+FUNC will get stream of reader and the symbol (see set-macro-character).
 
-But FUNC is binded to SYMBOL, not character. This symbol will be processed 
-in all cases, where it is not bounded by ||.
+To prevent symbol from processing (for example in set-macro-symbol construction) you should enclose it in bars.
+
+This construction will set 'foo as an alias to 'long-package-name:long-name:
+
+    (set-macro-symbol '|FOO|
+      (lambda (stream symbol)
+         (declare (ignore stream symbol))
+            'long-package-name:long-name))
+ 
+Another way to prevent symbol processing is setting `advanced-readtable:*enable-symbol-readmacro*` to nil. 
+Remember, that symbol processing is done during reading the file, so, if you need to temporarily disable
+`*enable-symbol-readmacro*`, then enclose it in #.
 
 Now you may make something like 
 
@@ -126,17 +137,13 @@ Now you may make something like
 html:[ and sql:[ will have different handlers and you may mix them in
 one expression.
 
-Also it allows to make simple symbol-aliases. For example:
-
-    (set-macro-symbol '|ALIAS| (lambda (stream symbol)
-                                 (declare (ignore stream symbol))
-                                   'advanced-readtables:push-local-package))
-Now you may do
-
-    (alias 'iter:iter :iterate)
-
 Moreover, you may alias variables from other packages and set them through 
-alias. But be careful: this change is not local to your package.
+alias. But be careful: this change is not local to your package. If you write qualified name
+of the symbol, you should enclose package-name int bars:
+    (set-macro-symbol '|OTHER-PACKAGE|:foo
+      (lambda (stream symbol)
+         (declare (ignore stream symbol))
+            'long-package-name:long-name))
                                    
 
 _get-macro-symbol_ - syntax is like get-macro-character, 
