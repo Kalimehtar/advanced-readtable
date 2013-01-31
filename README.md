@@ -139,7 +139,8 @@ one expression.
 
 Moreover, you may alias variables from other packages and set them through 
 alias. But be careful: this change is not local to your package. If you write qualified name
-of the symbol, you should enclose package-name int bars:
+of the symbol, you should enclose package-name in bars:
+
     (set-macro-symbol '|OTHER-PACKAGE|:foo
       (lambda (stream symbol)
          (declare (ignore stream symbol))
