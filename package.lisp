@@ -22,3 +22,5 @@
    #:push-local-package
    #:set-handler
    #:read-token-with-colons))
+
+(pushnew :advanced-readtable *features*)
