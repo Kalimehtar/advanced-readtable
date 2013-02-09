@@ -131,7 +131,7 @@ Then the result of last call is returned"
   (setf current-package (find-package current-package))
   (let ((sname (string name)))
     (or
-     (cl:find-package name)
+     (|CL|:find-package name)
      (funcall-first (package-finders current-package) 
                     sname current-package)
      (funcall-first *package-finders* 
@@ -166,7 +166,7 @@ Then the result of last call is returned"
                 find-local-packages))
 (defun find-local-packages (packages name)
   (if packages
-    (multiple-value-bind (symbol status) (cl:find-symbol name (car packages))
+    (multiple-value-bind (symbol status) (|CL|:find-symbol name (car packages))
       (if symbol 
           (values symbol status)
           (find-local-packages (cdr packages) name)))
@@ -191,8 +191,8 @@ Then the result of last call is returned"
                      `(values nil nil))))
       (mv-or
        (funcall-first-mv *current-extra-finders* name package)
-       (when dpackage (cl:find-symbol name package))
+       (when dpackage (|CL|:find-symbol name package))
        (unless dpackage (find-local-packages *local-packages* name))
        (funcall-first-mv (symbol-finders package) name package)
        (funcall-first-mv *symbol-finders* name package)
-       (unless dpackage (cl:find-symbol name package))))))
+       (unless dpackage (|CL|:find-symbol name package))))))

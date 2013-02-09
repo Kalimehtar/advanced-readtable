@@ -67,6 +67,8 @@ Replace first section of hierarchy with proper name"
 (set-handler *package-finders* :hierarchy #'hierarchy-find-package)
 (set-macro-symbol '|CL|:in-package #'substitute-symbol)
 (set-macro-symbol '|CL|:defpackage #'substitute-symbol)
+(set-macro-symbol '|CL|:find-package #'substitute-symbol)
+(set-macro-symbol '|CL|:find-symbol #'substitute-symbol)
 
 (%set-handler *package-finders* :global-nicknames name
   (gethash name *global-nicknames*))
