@@ -39,7 +39,7 @@ Advanced-readtable has fully functional built-in support of hierarchy-packages.
 .name means "subpackage name in current package", ..name -- "subpackage name in above package",
 ...name -- "subpackage in two-level-up package" and so on.
 In in-package you may use .. for above package, ... for two level up, and so on.
-Verbose documentation one may see at [allegro CL][http://www.franz.com/support/documentation/9.0/doc/packages.htm#relative-2].
+Verbose documentation one may see at [allegro CL][http://www.franz.com/support/documentation/9.0/doc/packages.htm#relative-2 "Allegro CL"].
 
     CL-USER> (defpackage .test (:use cl)))
     #<PACKAGE "COMMON-LISP-USER.TEST">
@@ -56,7 +56,7 @@ Verbose documentation one may see at [allegro CL][http://www.franz.com/support/d
     TEST> (in-package ..)
     CL-USER>
 
-You may use local-nicknames in defpackage (syntax taken from [SBCL][https://github.com/nikodemus/SBCL/commit/3c11847d1e12db89b24a7887b18a137c45ed4661])
+You may use local-nicknames in defpackage (syntax taken from [SBCL][https://github.com/nikodemus/SBCL/commit/3c11847d1e12db89b24a7887b18a137c45ed4661 "SBCL"])
 
     CL-USER> (defpackage :foo (:use :cl) (:local-nicknames (:it :cl)))
     CL-USER> (in-package :foo)
