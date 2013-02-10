@@ -104,7 +104,8 @@ new handler if it is not already there.
 " 
   `(let ((key ,key) (function ,function))
      (let ((found (assoc key ,handler-list :test #'equal)))
-       (if found (cdr found)
+       (if found 
+           (setf (cdr found) function)
            (prog1
                function
              (push (cons key function)

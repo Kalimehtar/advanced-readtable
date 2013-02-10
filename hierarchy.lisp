@@ -24,12 +24,12 @@ Replace first section of hierarchy with proper name"
            (if pos (subseq name 0 pos) "")))
        (relative-to (parent name)
          (cond 
-           ((string= parent "") name)
+           ((string= parent "") nil)
            ((string= name "") parent)
            (t (concatenate 'string parent "." name)))))
   (defun hierarchy-find-package (name package)
     (when (string= name "")
-      (return-from hierarchy-find-package package))
+      (return-from hierarchy-find-package nil))
     (if (char= (char name 0) #\.)
       (do ((i 1 (1+ i))
            (p (package-name package) (parent p)))
@@ -46,19 +46,35 @@ Replace first section of hierarchy with proper name"
 (defmacro in-package (designator)
   `(|CL|:in-package ,(correct-package (string designator))))
 
+(defun process-local-nicknames (package pairs)
+  (let (res)
+    (dolist (pair pairs (nreverse res))
+      (destructuring-bind (sym orig) pair
+        (push (list 'push-local-nickname orig sym package) res)))))
+
 (defmacro defpackage (package &rest options)
-  (let ((normalized (normalize-package (string package)))
-        (options 
-         (mapcar (lambda (option)
-                   (cons (car option)
-                         (case (car option)
-                           (:use (mapcar #'correct-package (cdr option)))
-                           ((:import-from :shadowing-import-from)
-                            (cons (correct-package (second option))
-                                  (cddr option)))
-                           (t (cdr option)))))
-                 options)))
-    `(|CL|:defpackage ,(or normalized package) . ,options)))
+  (let (post-commands new-options
+                      (normalized (or (normalize-package (string package))
+                                      package)))
+    (dolist (option options)
+       (push (cons (car option) 
+                   (case (car option)
+                     (:use (mapcar #'correct-package (cdr option)))
+                     ((:import-from :shadowing-import-from)
+                      (cons (correct-package (second option)) (cddr option)))
+                     (:local-nicknames
+                      (progn 
+                        (mapcar 
+                         (lambda (command)
+                           (push command post-commands))
+                         (process-local-nicknames normalized (cdr option)))
+                        (go next)))
+                     (t (cdr option))))
+             new-options)
+       next)
+    `(prog1
+         (|CL|:defpackage ,normalized . ,(nreverse new-options))
+       ,@post-commands)))
 
 (defun substitute-symbol (stream symbol)
   (declare (ignore stream))
