@@ -28,7 +28,7 @@ use (advanced-readtable:!!) or (in-readtable :advanced) and
 SLIME integration
 -----------------
 
-Append aontents of init.el to the end of your ~/.emacs file.
+Append contents of init.el to the end of your ~/.emacs file.
 
 Then, when you start slime, advanced-readtable will be loaded and used by slime.
 So you will have all completions for hierarchy packages, local-nicknames, 
