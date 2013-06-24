@@ -7,7 +7,7 @@
     (format "%S\n\n"
             `(progn
                (asdf:oos 'asdf:load-op :advanced-readtable)
-               (funcall (read-from-string "advanced-readtable:!"))
+               (funcall (read-from-string "advanced-readtable:!!"))
                (load ,(expand-file-name loader) 
                      :verbose t)
                (funcall (read-from-string "swank-loader:init"))

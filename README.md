@@ -20,6 +20,11 @@ or simply add to advanced-readtable to current readtable
 
     (advanced-readtable:!)
 
+If you want also to substitute cl:defpackage, cl:in-package,
+cl:find-package and cl:find-symbol by there adbanced versions,
+use (advanced-readtable:!!) or (in-readtable :advanced) and
+(advanced-readtable:activate-cl-substitutes).
+
 SLIME integration
 -----------------
 

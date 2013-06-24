@@ -81,10 +81,15 @@ Replace first section of hierarchy with proper name"
   (find-symbol (symbol-name symbol) #.*package*))
 
 (set-handler *package-finders* :hierarchy #'hierarchy-find-package)
-(set-macro-symbol '|CL|:in-package #'substitute-symbol)
-(set-macro-symbol '|CL|:defpackage #'substitute-symbol)
-(set-macro-symbol '|CL|:find-package #'substitute-symbol)
-(set-macro-symbol '|CL|:find-symbol #'substitute-symbol)
+
+(defun activate-cl-substitutes ()
+  (set-macro-symbol '|CL|:in-package #'substitute-symbol)
+  (set-macro-symbol '|CL|:defpackage #'substitute-symbol)
+  (set-macro-symbol '|CL|:find-package #'substitute-symbol)
+  (set-macro-symbol '|CL|:find-symbol #'substitute-symbol))
+
+(defun !! ()
+  (!) (activate-cl-substitutes))
 
 (%set-handler *package-finders* :global-nicknames name
   (gethash name *global-nicknames*))

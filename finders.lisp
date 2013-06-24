@@ -178,11 +178,11 @@ Then the result of last call is returned"
             => symbol (member :inherited :internal :external nil))
   "We try to find symbol
 1. In package set with car of list, for example, PUSH-LOCAL-PACKAGE
-2. By CL-FIND-SYMBOL, when package explicitly given
+2. By CL:FIND-SYMBOL, when package explicitly given
 3. By packages added with package:(...)
 4. By per-package finders
 5. By global finders
-6. By CL-FIND-SYMBOL"
+6. By CL:FIND-SYMBOL"
   (let ((package (if dpackage (find-package dpackage) *package*)))
     (macrolet ((mv-or (&rest clauses)
                  (if clauses

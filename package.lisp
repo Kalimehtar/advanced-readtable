@@ -10,7 +10,8 @@
    #:set-macro-symbol
    #:get-macro-symbol
    #:activate
-   #:! #:find-package #:find-symbol
+   #:activate-cl-substitutes
+   #:! #:!! #:find-package #:find-symbol
    #:package-finders
    #:symbol-finders
    #:*package-finders*
