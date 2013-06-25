@@ -12,6 +12,7 @@
    #:activate
    #:activate-cl-substitutes
    #:! #:!! #:find-package #:find-symbol
+   #:defpackage #:in-package
    #:package-finders
    #:symbol-finders
    #:*package-finders*

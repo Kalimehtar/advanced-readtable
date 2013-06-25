@@ -51,7 +51,7 @@
 DO: Reads from STREAM a symbol or number up to whitespace or colon
 RETURN: symbols name or numbers value"
   (let ((*readtable* *colon-readtable*)
-        (*package* (cl:find-package '#:advanced-readtable.junk)))
+        (*package* (|CL|:find-package '#:advanced-readtable.junk)))
     (or (collect-dots stream)
         (read-preserving-whitespace stream nil))))
 
@@ -112,10 +112,6 @@ RETURN: number of the colons"
   (defun read-token-with-colons (stream char)
     "Reads token, then analize package part if needed"
     (unread-char char stream)
-    (when *read-suppress* 
-      (let ((*readtable* (copy-readtable nil)))
-        (read stream))
-      (return-from read-token-with-colons))
     (let* ((token (read-token stream))
            ;; We have read something. 
            ;; It may represent either symbol or package designator. 
@@ -125,14 +121,14 @@ RETURN: number of the colons"
       
       (when (or (not (symbolp object)) 
                 (eql char #\|))
-        (return-from read-token-with-colons object))
+        (return-from read-token-with-colons (and (not *read-suppress*) object)))
       
       (let ((object (process-symbol-readmacro stream object)))
         (when *car-list*
           (setf *car-list* nil
                 *current-extra-finders* 
                 (append (extra-finders object) *current-extra-finders*)))
-        object)))
+        (and (not *read-suppress*) object))))
           
   (let ((default-open-paren-reader 
          (get-macro-character #\( (copy-readtable nil))))
@@ -219,4 +215,4 @@ RETURN: number of the colons"
     (set-macro-character c #'read-token-with-colons t))
   (set-macro-character #\( #'open-paren-reader nil))
 
-(defun ! () (activate))
+(defun ! () (in-readtable :advanced))

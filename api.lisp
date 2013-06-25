@@ -27,7 +27,7 @@ So, if you make
 after that reducers:... will refer to new package, not com.clearly-useful.reducers.
 "
   (%set-handler (package-finders package) `(:prefix ,prefix) name
-    (cl:find-package (concatenate 'string (string prefix) "." name))))
+    (|CL|:find-package (concatenate 'string (string prefix) "." name))))
 
 (defvar *global-nicknames* (make-hash-table :test 'equal) ; to find by string=
   "Package aliases. Hash nickname: string -> package")
@@ -88,7 +88,7 @@ For example, this will be error:
 "
   (let ((dpackage (find-package local-package)))
     (%set-handler (extra-finders symbol) `(:local ,symbol ,local-package) name
-      (multiple-value-bind (symbol status) (cl:find-symbol name dpackage)
+      (multiple-value-bind (symbol status) (|CL|:find-symbol name dpackage)
         (if (eq status :external) 
             (values symbol status)
             (values nil nil))))))
